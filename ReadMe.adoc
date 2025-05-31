@@ -1,0 +1,163 @@
+= Smart Irrigation System
+
+== Overview
+The Smart Irrigation System is an automated system designed to optimize watering based on environmental conditions. The system uses an ESP32 microcontroller, various sensors (soil moisture, light), and actuators to control water irrigation. The system integrates with the Arduino IoT Cloud for remote monitoring and control.
+
+== Hardware Setup
+
+=== 1. Microcontroller
+- **ESP32 Board**:
+  - Manages sensor data processing, decision-making, and communication with the Arduino IoT Cloud.
+  - Provides Wi-Fi connectivity for remote monitoring and control.
+
+=== 2. Sensors
+- **Soil Moisture Sensor**:
+  - **Connection**: GPIO 34 (Analog Input)
+  - Measures the soil moisture level, which is mapped to a percentage (0% to 100%).
+  - Higher analog readings (4095) indicate dry soil, and lower readings (0) indicate wet soil.
+  
+- **LDR (Light Dependent Resistor)**:
+  - **Connection**: GPIO 35 (Digital Input)
+  - Detects ambient light conditions.
+  - Low signal = Bright light, High signal = Dark environment.
+
+=== 3. Actuator
+- **Relay Module**:
+  - **Connection**: GPIO 18 (Output)
+  - Controls the water pump based on soil moisture and light conditions.
+  - Activates the pump when the relay closes the circuit.
+
+=== 4. Display
+- **OLED Display (SSD1306, I2C Address: 0x3C)**:
+  - Displays real-time data including moisture level, sunlight status, water pump state, and operating mode (auto/manual).
+  - Communicates over the I2C protocol.
+
+=== 5. Power Supply
+- The ESP32 board and components are powered via a 5V power source (USB or external battery).
+
+=== 6. Connectivity
+- The ESP32 connects to Wi-Fi using credentials stored in `arduino_secrets.h`.
+- Communicates with the Arduino IoT Cloud for remote monitoring and control.
+
+== Software Configuration
+
+=== 1. Microcontroller (ESP32)
+- The ESP32 is configured in `sketch.json` with parameters like upload speed, CPU frequency, and flash settings.
+- **Arduino IoT Cloud Integration**: 
+  - The ESP32 connects to the cloud using the credentials stored in `thingProperties.h`, initialized by:
+    ```cpp
+    ArduinoCloud.begin(ArduinoIoTPreferredConnection);
+    ```
+  - This ensures the ESP32 registers with the cloud and can send/receive data for remote monitoring.
+
+=== 2. Soil Moisture Sensor
+- **Connection & Reading**:
+  - The sensor is connected to the ESP32’s ADC pin (GPIO 34) and is read via:
+    ```cpp
+    int sensorValue = analogRead(SOIL_MOISTURE_PIN);
+    ```
+  - The raw sensor value is converted to a percentage:
+    ```cpp
+    moisture = map(sensorValue, 4095, 0, 0, 100);
+    ```
+  - High readings correspond to dry soil (0% moisture), and low readings correspond to wet soil (100%).
+
+=== 3. LDR (Light Dependent Resistor) Sensor
+- **Connection & Reading**:
+  - The LDR is connected to GPIO 35 and its state is determined by:
+    ```cpp
+    int ldrState = digitalRead(LDR_PIN);
+    ```
+  - A LOW signal indicates brightness:
+    ```cpp
+    sunlight = (ldrState == LOW);
+    ```
+
+=== 4. Relay Module
+- **Connection & Configuration**:
+  - Connected to GPIO 18 with the pin mode set to `OUTPUT_OPEN_DRAIN`:
+    ```cpp
+    pinMode(RELAY_PIN, OUTPUT_OPEN_DRAIN);
+    ```
+- **Control Logic**:
+  - In automatic mode, the relay is controlled based on soil moisture and sunlight conditions:
+    ```cpp
+    if (!manualControl) {
+        if (moisture < 30 && sunlight) {
+            water = true;
+        } else {
+            water = false;
+        }
+        digitalWrite(RELAY_PIN, water ? LOW : HIGH);
+    }
+    ```
+  - Manual mode is triggered when the `water` property is changed via the cloud:
+    ```cpp
+    void onWaterChange() {
+        manualControl = true;
+        digitalWrite(RELAY_PIN, water ? LOW : HIGH);
+    }
+    ```
+
+=== 5. OLED Display (SSD1306)
+- **Initialization**:
+  - The display is initialized in the `setup()` function:
+    ```cpp
+    if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
+        Serial.println("SSD1306 allocation failed");
+        for (;;);
+    }
+    ```
+- **Displaying Information**:
+  - The display is updated every loop cycle to show real-time data:
+    ```cpp
+    display.clearDisplay();
+    display.setCursor(0, 0);
+    display.print("Moisture: ");
+    display.print(moisture);
+    display.println("%");
+    ```
+
+=== 6. WiFi & Cloud Connectivity
+- **WiFi Connection**:
+  - The ESP32 connects to Wi-Fi using credentials stored in `arduino_secrets.h`:
+    ```cpp
+    Serial.println(WiFi.localIP());
+    ```
+- **Cloud Data Exchange**:
+  - The ESP32 communicates with the Arduino IoT Cloud, exchanging data on three properties:
+    - `moisture` (read-only)
+    - `sunlight` (read-only)
+    - `water` (read and write)
+  - The `ArduinoCloud.update()` function ensures synchronization with the cloud.
+
+== Summary of Task Achievement
+
+=== Sensor Data Collection
+- The system reads data from the soil moisture sensor and the LDR sensor.
+- The soil moisture is mapped to a percentage, and the light condition is detected as either bright or dark.
+
+=== Decision Making
+- Based on sensor data, the system determines if watering is necessary (moisture below 30% and sufficient sunlight).
+- The relay is activated to control the water pump.
+
+=== User Interaction & Feedback
+- Real-time data is displayed on the OLED screen, and remote control and monitoring are enabled via the Arduino IoT Cloud.
+- The system includes a manual override triggered by cloud interactions, allowing users to turn the water pump on/off regardless of the sensor data.
+
+== Components Used
+- **ESP32 Board**
+- **Soil Moisture Sensor**
+- **LDR Sensor**
+- **Relay Module**
+- **OLED Display (SSD1306)**
+- **Arduino IoT Cloud**
+- **Power Supply**
+
+== Future Enhancements
+- Integration of additional sensors (e.g., temperature, humidity).
+- Expansion to support multiple zones for larger irrigation systems.
+- Implement a mobile app or web interface for better user experience.
+
+== License
+This project is licensed under the MIT License - see the LICENSE file for details.
