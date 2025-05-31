@@ -159,5 +159,3 @@ The Smart Irrigation System is an automated system designed to optimize watering
 - Expansion to support multiple zones for larger irrigation systems.
 - Implement a mobile app or web interface for better user experience.
 
-== License
-This project is licensed under the MIT License - see the LICENSE file for details.
